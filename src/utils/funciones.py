@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+import numpy as np
 import ast
 
 def split_type_line(type_line):
@@ -108,8 +109,10 @@ def map_legal_status(status):
         return 1
     elif status == 'not_legal':
         return 0
-    elif status == 'banned':
+    elif status == 'restricted':
         return -1
+    elif status == 'banned':
+        return -2
     else:
         return None  # por si aparece algo inesperado
     
@@ -135,3 +138,107 @@ def contar_subtipos(columna, sep=','):
     df_frecuencias.reset_index(inplace=True)
     
     return df_frecuencias
+
+def contar_manas(valor):
+    if pd.isna(valor):
+        return 0
+    try:
+        mana_list = ast.literal_eval(valor)
+        if isinstance(mana_list, list):
+            return len(mana_list)
+    except:
+        pass
+    return 0
+
+import re
+
+
+# Lista de habilidades de evasión comunes
+evasion_keywords = {
+    'Flying', 'Fear', 'Intimidate', 'Horsemanship', 'Skulk',
+    'Shadow', 'Menace', 'Protection', 'Unblockable',
+    'Burrowing', 'Daunt', 'Nimble', 'Gingerbrute', "Trample"
+}
+
+# Función para determinar si una carta tiene al menos una habilidad de evasión
+def tiene_evasion(keywords_str):
+    try:
+        keywords = ast.literal_eval(keywords_str)
+        if not isinstance(keywords, list):
+            return 0
+    except (ValueError, SyntaxError):
+        return 0
+    for kw in keywords:
+        if kw in evasion_keywords or 'walk' in kw.lower():
+            return 1
+    return 0
+
+
+## Busco en oracle text también
+oracle_evasion_patterns = [
+    r"\bcan't be blocked\b",
+    r"\bis unblockable\b",
+    r"\bhas landwalk\b",          
+    r"\w+walk",                   
+]
+
+def detectar_evasion(row):
+    # --- 1. Keywords ---
+    keywords_raw = row.get('keywords', '[]')
+    try:
+        keywords = ast.literal_eval(keywords_raw)
+        if not isinstance(keywords, list):
+            keywords = []
+    except:
+        keywords = []
+
+    for kw in keywords:
+        if kw in evasion_keywords or 'walk' in kw.lower():
+            return 1
+
+    # --- 2. Oracle Text ---
+    oracle_text = row.get('oracle_text', '')
+    if isinstance(oracle_text, str):
+        for pattern in oracle_evasion_patterns:
+            if re.search(pattern, oracle_text, flags=re.IGNORECASE):
+                return 1
+
+    return 0
+
+
+def parse_stat(val):
+    if pd.isna(val):
+        return np.nan  # mantener NaN original, lo trataremos luego
+    try:
+        # Caso 1: valor convertible directamente
+        return float(val)
+    except:
+        pass
+
+    # Caso 2: reemplazar '*' por 1, luego intentar evaluar
+    try:
+        expr = re.sub(r'\*', '1', val)
+        if re.match(r'^[\d\.\+\-\s]+$', expr):  # solo permitir operaciones simples
+            return eval(expr)
+    except:
+        pass
+
+    return "moda"  # marcamos para reemplazar por la moda
+
+def procesar_columna(col):
+    # Paso 1: aplicar parser
+    parsed = col.apply(parse_stat)
+
+    # Paso 2: separar valores marcados como "moda"
+    parsed_for_mode = parsed[parsed != "moda"]
+    numeric_values = parsed_for_mode.dropna().astype(float)
+
+    moda_val = numeric_values.mode().iloc[0] if not numeric_values.empty else 0
+    min_val = numeric_values.min() if not numeric_values.empty else -1
+
+    # Paso 3: reemplazar
+    parsed = parsed.replace("moda", moda_val)
+    parsed = parsed.astype(float)
+    parsed = parsed.fillna(min_val - 1)  # solo los NaN originales
+
+    return parsed

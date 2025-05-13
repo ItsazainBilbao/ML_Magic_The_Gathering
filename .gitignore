@@ -1,2 +1,3 @@
 src/data/dataCards.csv
 *.csv
+src/model/modelo_guardado/model.safetensors
