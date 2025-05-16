@@ -34,7 +34,7 @@ banner = r"""
       /  /          \     \   \    \   |  |^ %) | __'T T |^ %)/^|| )/ \        
      /  (            |     |   \    \ .|. | |\,  \_|(] | | |\,[ || |\_/        
     /    \,           \     \   \    \             '                 \         
-   /___---'            | ,-'~   .)    `.                            (~) Predictor       
+   /___---'            | ,-'~   .)    `.                            (~) Card Price Predictor       
 .=~~                   `~       `~~~~~~~'                            ~         
                            """
 
@@ -97,8 +97,7 @@ while True:
     ]
 
     # Si no encuentra con esas condiciones, buscar solo por nombre
-    if filas.empty:
-        # print("No ha encontrado la carta con esa combinación de foil y full_art, buscando sin estas restricciones...")
+    if filas.empty:        
         filas = df[
             (df['name'].str.lower() == name.lower())
         ]
@@ -122,13 +121,12 @@ while True:
     mejor_prediccion = None
 
     # 4. Iterar sobre todas las cartas encontradas y hacer predicciones
-    # 4. Iterar sobre todas las cartas encontradas y hacer predicciones
     for idx, fila in filas.iterrows():
         # Eliminar las columnas que no se usan
         X_row = fila.drop(columns=["final_price_eur", "log_price", "name", "oracle_text"])
 
         # Convertir X_row a un DataFrame con el mismo formato que las entradas del modelo
-        X_row = X_row.to_frame().T  # Convertir a DataFrame y asegurarse de que tenga una sola fila (por eso usamos T)
+        X_row = X_row.to_frame().T  
 
         # Predecir con el pipeline
         log_preds = model.predict(X_row)[0]  # [cheap, mid, expensive]
@@ -147,16 +145,14 @@ while True:
             mejor_fila = fila
             mejor_prediccion = preds[idx_mejor]
 
-    # 5. Mostrar resultados    
-    # os.system('cls' if os.name == 'nt' else 'clear')
-    # print(banner)    
+    # 5. Mostrar resultados        
     print(f"\nCarta: {mejor_fila['name']}")
     print(f"Es foil: {foil} || Es Fullart: {fullart}")
     print(f"Precio real:      {np.expm1(mejor_fila['log_price']):.2f} €")    
     print(f"Precio Predict: {mejor_prediccion:.2f} €")
     print(banner2)
 
-    otra = input("\n¿Querés predecir otra carta? (y/n): ").strip().lower()
+    otra = input("\n¿Quieres predecir otra carta? (y/n): ").strip().lower()
     os.system('cls' if os.name == 'nt' else 'clear')
     if otra != "y":
         break

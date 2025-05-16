@@ -57,6 +57,6 @@ while True:
     print(f"Precio real:      {real_price:.2f} €")    
     print(f"Precio Predict: {preds[idx_mejor]:.2f} €")
 
-    otra = input("\n¿Querés predecir otra carta? (y/n): ").strip().lower()
+    otra = input("\n¿Quieres predecir otra carta? (y/n): ").strip().lower()
     if otra != "y":
         break
